@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\TransactionType;
+use App\Enums\TransactionType;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
