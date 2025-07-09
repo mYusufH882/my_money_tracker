@@ -55,6 +55,12 @@ class Transaction extends Model
         return $query->where('tipe', TransactionType::Pengeluaran->value);
     }
 
+    // Scope untuk filter berdasarkan user
+    public function scopeForCurrentUser($query)
+    {
+        return $query->where('user_id', auth()->id());
+    }
+
     // Accessor untuk format currency
     public function getFormattedNominalAttribute()
     {
@@ -76,5 +82,10 @@ class Transaction extends Model
     public function category()
     {
         return $this->belongsTo(Category::class, 'kategori_id', 'id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 }
