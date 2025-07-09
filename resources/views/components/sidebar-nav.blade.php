@@ -52,32 +52,5 @@
                 </li>
             </ul>
         </li>
-        
-        <!-- Export Section -->
-        <li class="mt-auto">
-            <div class="text-xs font-semibold leading-6 text-gray-400">Export</div>
-            <ul role="list" class="-mx-2 mt-2 space-y-1">
-                <li>
-                    <a href="#" @click.prevent="$wire.exportExcel()" 
-                       class="group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold text-gray-700 hover:text-indigo-600 hover:bg-gray-50">
-                        <svg class="h-6 w-6 shrink-0 text-gray-400 group-hover:text-indigo-600" 
-                             fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                        </svg>
-                        Excel
-                    </a>
-                </li>
-                <li>
-                    <a href="#" @click.prevent="$wire.exportPdf()" 
-                       class="group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold text-gray-700 hover:text-indigo-600 hover:bg-gray-50">
-                        <svg class="h-6 w-6 shrink-0 text-gray-400 group-hover:text-indigo-600" 
-                             fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                        </svg>
-                        PDF
-                    </a>
-                </li>
-            </ul>
-        </li>
     </ul>
 </nav>

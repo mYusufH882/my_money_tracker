@@ -293,7 +293,7 @@ class TransactionsExport implements FromCollection, WithHeadings, WithMapping, W
                 // Set column widths
                 if ($this->forPdf) {
                     // Optimized widths for PDF landscape A4
-                    $sheet->getColumnDimension('A')->setWidth(5);   // No
+                    $sheet->getColumnDimension('A')->setWidth(2);   // No
                     $sheet->getColumnDimension('B')->setWidth(11);  // Tanggal
                     $sheet->getColumnDimension('C')->setWidth(28);  // Deskripsi
                     $sheet->getColumnDimension('D')->setWidth(11);  // Tipe
@@ -301,7 +301,7 @@ class TransactionsExport implements FromCollection, WithHeadings, WithMapping, W
                     $sheet->getColumnDimension('F')->setWidth(13);  // Kategori
                 } else {
                     // Comfortable widths for Excel
-                    $sheet->getColumnDimension('A')->setWidth(8);   // No
+                    $sheet->getColumnDimension('A')->setWidth(4);   // No
                     $sheet->getColumnDimension('B')->setWidth(15);  // Tanggal
                     $sheet->getColumnDimension('C')->setWidth(35);  // Deskripsi
                     $sheet->getColumnDimension('D')->setWidth(15);  // Tipe
@@ -320,7 +320,7 @@ class TransactionsExport implements FromCollection, WithHeadings, WithMapping, W
 
                 // Text alignment
                 $sheet->getStyle("A{$dataStartRow}:A{$dataEndRow}")->getAlignment()
-                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
                 $sheet->getStyle("B{$dataStartRow}:B{$dataEndRow}")->getAlignment()
                     ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle("D{$dataStartRow}:D{$dataEndRow}")->getAlignment()
