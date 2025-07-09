@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TransactionType;
 use Carbon\Carbon;
+use App\Helpers\CurrencyHelper;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
@@ -54,19 +55,25 @@ class Transaction extends Model
     }
 
     // Accessor untuk format currency
-    public function getFormattedAmountAttribute()
+    public function getFormattedNominalAttribute()
     {
-        return number_format($this->amount, 2, '.', ',');
+        return CurrencyHelper::format($this->nominal);
     }
 
     // Accessor untuk format date
-    public function getFormattedDateAttribute()
+    public function getFormattedTglTransaksiAttribute()
     {
-        return $this->date->format('d/m/Y');
+        return $this->tgl_transaksi->format('d/m/Y');
+    }
+
+    // Accessor untuk format short currency
+    public function getFormattedNominalShortAttribute()
+    {
+        return CurrencyHelper::formatForExport($this->nominal);
     }
 
     public function category()
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class, 'kategori_id', 'id');
     }
 }

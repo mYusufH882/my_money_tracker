@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Enums\TransactionType;
 use App\Models\Category;
 use App\Models\Transaction;
-use App\TransactionType;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 

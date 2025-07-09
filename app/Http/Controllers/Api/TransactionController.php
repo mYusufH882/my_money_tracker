@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TransactionsExport;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TransactionController extends Controller
 {
@@ -168,13 +169,21 @@ class TransactionController extends Controller
         return $this->successResponse($chartData, 'Chart data retrieved successfully');
     }
 
-    public function export(): \Sympony\Component\HttpFoundation\BinaryFileResponse
+    public function export(): BinaryFileResponse
     {
-        return Excel::download(new TransactionsExport(), 'transactions.xlsx');
+        try {
+            return Excel::download(new TransactionsExport(), 'transactions.xlsx');
+        } catch (\Exception $e) {
+            abort(500, 'Export failed: ' . $e->getMessage());
+        }
     }
 
-    public function exportPdf(): \Sympony\Component\HttpFoundation\BinaryFileResponse
+    public function exportPdf(): BinaryFileResponse
     {
-        return Excel::download(new TransactionsExport(), 'transactions.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
+        try {
+            return Excel::download(new TransactionsExport(), 'transactions.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
+        } catch (\Exception $e) {
+            abort(500, 'PDF Export failed: ' . $e->getMessage());
+        }
     }
 }

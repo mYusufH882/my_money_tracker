@@ -62,15 +62,15 @@ return [
         |
         */
         'properties'             => [
-            'creator'        => '',
-            'lastModifiedBy' => '',
-            'title'          => '',
-            'description'    => '',
-            'subject'        => '',
-            'keywords'       => '',
-            'category'       => '',
+            'creator'        => 'My Money Tracker',
+            'lastModifiedBy' => 'System',
+            'title'          => 'Laporan Transaksi Keuangan',
+            'description'    => 'Laporan transaksi keuangan dengan ringkasan saldo',
+            'subject'        => 'Financial Report',
+            'keywords'       => 'transaksi,keuangan,laporan',
+            'category'       => 'Finance',
             'manager'        => '',
-            'company'        => '',
+            'company'        => 'Yusuf Coding',
         ],
     ],
 
@@ -193,6 +193,7 @@ return [
         'html'     => Excel::HTML,
         'csv'      => Excel::CSV,
         'tsv'      => Excel::TSV,
+        'pdf' => \Maatwebsite\Excel\Excel::DOMPDF,
 
         /*
         |--------------------------------------------------------------------------
