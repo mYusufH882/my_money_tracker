@@ -1,5 +1,6 @@
 <?php
 
+use App\Exports\TransactionsExport;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\Categories\CategoryManager;
@@ -7,6 +8,7 @@ use App\Livewire\Dashboard;
 use App\Livewire\Reports\FinancialSummary;
 use App\Livewire\Transactions\TransactionList;
 use Illuminate\Support\Facades\Route;
+use Maatwebsite\Excel\Facades\Excel;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', Login::class)->name('login');
@@ -29,10 +31,10 @@ Route::middleware('auth')->group(function () {
 
     // Export routes (akan dihandle di Livewire components)
     Route::get('/export/excel', function () {
-        return app(\App\Exports\TransactionsExport::class)->download('transactions.xlsx');
+        return Excel::download(new TransactionsExport(), 'transactions.xlsx');
     })->name('export.excel');
 
     Route::get('/export/pdf', function () {
-        return app(\App\Exports\TransactionsExport::class)->download('transactions.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
+        return Excel::download(new TransactionsExport(true), 'transactions.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
     })->name('export.pdf');
 });
