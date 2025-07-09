@@ -73,16 +73,18 @@ class TransactionList extends Component
         }
     }
 
+    protected $listeners = [
+        'transactionSaved' => '$refresh'
+    ];
+
     public function addTransaction()
     {
-        // Placeholder untuk redirect ke form
-        session()->flash('info', 'Form tambah transaksi akan dibuat selanjutnya.');
+        $this->dispatch('openCreateModal');
     }
 
     public function editTransaction($id)
     {
-        // Placeholder untuk edit
-        session()->flash('info', 'Form edit transaksi akan dibuat selanjutnya.');
+        $this->dispatch('openEditModal', $id);
     }
 
     public function render()
