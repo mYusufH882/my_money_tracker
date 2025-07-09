@@ -10,7 +10,8 @@
             <!-- Month Navigator -->
             <div class="mt-4 sm:mt-0 flex items-center space-x-2">
                 <button wire:click="changeMonth('prev')" 
-                        class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                        wire:loading.attr="disabled"
+                        class="p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
@@ -18,12 +19,18 @@
                 
                 <div class="text-center min-w-[120px]">
                     <div class="text-lg font-semibold text-gray-900">
-                        {{ \Carbon\Carbon::createFromDate($currentYear, $currentMonth, 1)->format('F Y') }}
+                        <span wire:loading.remove wire:target="changeMonth">
+                            {{ \Carbon\Carbon::createFromDate($currentYear, $currentMonth, 1)->format('F Y') }}
+                        </span>
+                        <span wire:loading wire:target="changeMonth" class="text-gray-400">
+                            Loading...
+                        </span>
                     </div>
                 </div>
                 
                 <button wire:click="changeMonth('next')" 
-                        class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                        wire:loading.attr="disabled"
+                        class="p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                     </svg>
@@ -113,8 +120,8 @@
                 </h3>
                 
                 @if(count($monthlyChart) > 0)
-                    <div class="h-64" x-data="chartData()" x-init="initChart()">
-                        <canvas id="monthlyChart"></canvas>
+                    <div class="h-64">
+                        <canvas id="monthlyChart" wire:ignore></canvas>
                     </div>
                 @else
                     <div class="h-64 flex items-center justify-center text-gray-500">
@@ -268,65 +275,84 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    function chartData() {
-        return {
-            chart: null,
-            
-            initChart() {
-                const ctx = document.getElementById('monthlyChart');
-                if (!ctx) return;
-                
-                const chartData = @json($monthlyChart);
-                
-                this.chart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.map(item => item.month),
-                        datasets: [
-                            {
-                                label: 'Pemasukan',
-                                data: chartData.map(item => item.income),
-                                borderColor: 'rgb(34, 197, 94)',
-                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                                tension: 0.4,
-                                fill: false
-                            },
-                            {
-                                label: 'Pengeluaran',
-                                data: chartData.map(item => item.expense),
-                                borderColor: 'rgb(239, 68, 68)',
-                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                tension: 0.4,
-                                fill: false
-                            }
-                        ]
+    let monthlyChartInstance = null;
+
+    function initChart() {
+        const ctx = document.getElementById('monthlyChart');
+        if (!ctx) return;
+        
+        // Destroy existing chart
+        if (monthlyChartInstance) {
+            monthlyChartInstance.destroy();
+            monthlyChartInstance = null;
+        }
+        
+        const chartData = @json($monthlyChart);
+        
+        if (!chartData || chartData.length === 0) return;
+        
+        monthlyChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.map(item => item.month),
+                datasets: [
+                    {
+                        label: 'Pemasukan',
+                        data: chartData.map(item => item.income),
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4,
+                        fill: false
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
+                    {
+                        label: 'Pengeluaran',
+                        data: chartData.map(item => item.expense),
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'Rp ' + value.toLocaleString('id-ID');
                             }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return 'Rp ' + value.toLocaleString('id-ID');
-                                    }
-                                }
-                            }
-                        },
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
                         }
                     }
-                });
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
             }
-        }
+        });
     }
+
+    // Initialize chart when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(initChart, 100);
+    });
+
+    // Listen for Livewire updates to refresh chart
+    document.addEventListener('livewire:updated', function() {
+        setTimeout(initChart, 100);
+    });
+
+    // Listen for month change event
+    window.addEventListener('monthChanged', function() {
+        setTimeout(initChart, 200);
+    });
 </script>
 @endpush

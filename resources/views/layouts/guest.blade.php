@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <title>{{ config('app.name', 'My Money Tracker') }}</title>
 
     <!-- Fonts -->
@@ -27,11 +28,10 @@
 
         <!-- Footer -->
         <div class="mt-8 text-center text-sm text-gray-500">
-            © {{ date('Y') }} My Money Tracker. Built with Laravel & Livewire. By Yuscode
+            © {{ date('Y') }} Money Tracker. Built with Laravel & Livewire.
         </div>
     </div>
 
     @livewireScripts
-    <script src="//unpkg.com/alpinejs" defer></script>
 </body>
 </html>

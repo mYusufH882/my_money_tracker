@@ -11,7 +11,7 @@ use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 #[Layout('layouts.guest')]
-#[Title('Register - Money Tracker')]
+#[Title('Register - My Money Tracker')]
 class Register extends Component
 {
     #[Validate('required|min:2')]

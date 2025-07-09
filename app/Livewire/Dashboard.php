@@ -3,14 +3,13 @@
 namespace App\Livewire;
 
 use App\Models\Transaction;
-use App\Models\Category;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
-#[Title('Dashboard - My Money Tracker')]
+#[Title('Dashboard - Money Tracker')]
 class Dashboard extends Component
 {
     public $currentMonth;
@@ -29,23 +28,36 @@ class Dashboard extends Component
         $this->loadDashboardData();
     }
 
+    public function updated($propertyName)
+    {
+        // Reload data when month/year changes
+        if (in_array($propertyName, ['currentMonth', 'currentYear'])) {
+            $this->loadDashboardData();
+        }
+    }
+
     public function loadDashboardData()
     {
+        // Pastikan user sudah login
+        if (!auth()->check()) {
+            return;
+        }
+
         // Summary untuk bulan ini
-        $this->totalIncome = Transaction::forCurrentUser()
+        $this->totalIncome = Transaction::where('user_id', auth()->id())
             ->filterByMonth($this->currentMonth, $this->currentYear)
             ->where('tipe', 'pemasukan')
-            ->sum('nominal');
+            ->sum('nominal') ?: 0;
 
-        $this->totalExpense = Transaction::forCurrentUser()
+        $this->totalExpense = Transaction::where('user_id', auth()->id())
             ->filterByMonth($this->currentMonth, $this->currentYear)
             ->where('tipe', 'pengeluaran')
-            ->sum('nominal');
+            ->sum('nominal') ?: 0;
 
         $this->balance = $this->totalIncome - $this->totalExpense;
 
-        // Transaksi terbaru (5 terakhir)
-        $this->recentTransactions = Transaction::forCurrentUser()
+        // Transaksi terbaru (5 terakhir) - dari semua bulan
+        $this->recentTransactions = Transaction::where('user_id', auth()->id())
             ->with('category')
             ->latest('tgl_transaksi')
             ->take(5)
@@ -61,6 +73,11 @@ class Dashboard extends Component
 
     private function loadMonthlyChart()
     {
+        if (!auth()->check()) {
+            $this->monthlyChart = [];
+            return;
+        }
+
         $months = [];
 
         for ($i = 5; $i >= 0; $i--) {
@@ -68,15 +85,15 @@ class Dashboard extends Component
             $month = $date->month;
             $year = $date->year;
 
-            $income = Transaction::forCurrentUser()
+            $income = Transaction::where('user_id', auth()->id())
                 ->filterByMonth($month, $year)
                 ->where('tipe', 'pemasukan')
-                ->sum('nominal');
+                ->sum('nominal') ?: 0;
 
-            $expense = Transaction::forCurrentUser()
+            $expense = Transaction::where('user_id', auth()->id())
                 ->filterByMonth($month, $year)
                 ->where('tipe', 'pengeluaran')
-                ->sum('nominal');
+                ->sum('nominal') ?: 0;
 
             $months[] = [
                 'label' => $date->format('M Y'),
@@ -91,17 +108,24 @@ class Dashboard extends Component
 
     private function loadCategoryBreakdown()
     {
-        $this->categoryBreakdown = Transaction::forCurrentUser()
+        if (!auth()->check()) {
+            $this->categoryBreakdown = [];
+            return;
+        }
+
+        $breakdown = Transaction::where('user_id', auth()->id())
             ->filterByMonth($this->currentMonth, $this->currentYear)
+            ->whereNotNull('kategori_id')
             ->join('categories', 'transactions.kategori_id', '=', 'categories.id')
             ->selectRaw('categories.name, categories.id, tipe, SUM(nominal) as total, COUNT(*) as count')
             ->groupBy('categories.id', 'categories.name', 'tipe')
-            ->orderBy('total', 'desc')
-            ->get()
+            ->get();
+
+        $this->categoryBreakdown = $breakdown
             ->groupBy('name')
             ->map(function ($group) {
-                $income = $group->where('tipe', 'pemasukan')->sum('total');
-                $expense = $group->where('tipe', 'pengeluaran')->sum('total');
+                $income = $group->where('tipe', 'pemasukan')->sum('total') ?: 0;
+                $expense = $group->where('tipe', 'pengeluaran')->sum('total') ?: 0;
                 return [
                     'name' => $group->first()->name,
                     'income' => (float) $income,
@@ -110,6 +134,7 @@ class Dashboard extends Component
                     'transactions' => $group->sum('count'),
                 ];
             })
+            ->sortByDesc('transactions')
             ->values()
             ->toArray();
     }
@@ -123,7 +148,7 @@ class Dashboard extends Component
             } else {
                 $this->currentMonth--;
             }
-        } else {
+        } elseif ($direction === 'next') {
             if ($this->currentMonth == 12) {
                 $this->currentMonth = 1;
                 $this->currentYear++;
@@ -132,7 +157,11 @@ class Dashboard extends Component
             }
         }
 
+        // Force reload data
         $this->loadDashboardData();
+
+        // Dispatch event untuk update chart
+        $this->dispatch('monthChanged');
     }
 
     public function exportExcel()
