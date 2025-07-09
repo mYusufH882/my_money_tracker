@@ -47,12 +47,12 @@
                     wire:model.live.debounce.300ms="search" 
                     type="text" 
                     placeholder="Cari deskripsi..."
-                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    class="w-full p-4 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
             </div>
 
             <!-- Type Filter -->
             <div>
-                <select wire:model.live="filterType" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <select wire:model.live="filterType" class="w-full p-4 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     <option value="">Semua Tipe</option>
                     <option value="pemasukan">Pemasukan</option>
                     <option value="pengeluaran">Pengeluaran</option>
@@ -61,7 +61,7 @@
 
             <!-- Category Filter -->
             <div>
-                <select wire:model.live="filterCategory" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <select wire:model.live="filterCategory" class="w-full p-4 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     <option value="">Semua Kategori</option>
                     @foreach($categories as $category)
                         <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -71,7 +71,7 @@
 
             <!-- Month Filter -->
             <div>
-                <select wire:model.live="filterMonth" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <select wire:model.live="filterMonth" class="w-full p-4 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     <option value="">Semua Bulan</option>
                     @for($i = 1; $i <= 12; $i++)
                         <option value="{{ $i }}">{{ \Carbon\Carbon::create()->month($i)->format('F') }}</option>
@@ -81,7 +81,7 @@
 
             <!-- Year Filter -->
             <div>
-                <select wire:model.live="filterYear" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <select wire:model.live="filterYear" class="w-full p-4 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     @for($year = date('Y'); $year >= date('Y') - 5; $year--)
                         <option value="{{ $year }}">{{ $year }}</option>
                     @endfor
@@ -93,7 +93,7 @@
         <div class="mt-4 flex items-center justify-between">
             <button 
                 wire:click="clearFilters" 
-                class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                class="inline-flex px-2 py-2 border border-gray-300 rounded-md items-center text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>

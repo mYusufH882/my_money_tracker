@@ -19,7 +19,7 @@ class Dashboard extends Component
     public $balance = 0;
     public $recentTransactions = [];
     public $monthlyChart = [];
-    public $categoryBreakdown = [];
+    public $dailyBreakdown = [];
 
     public function mount()
     {
@@ -56,19 +56,21 @@ class Dashboard extends Component
 
         $this->balance = $this->totalIncome - $this->totalExpense;
 
-        // Transaksi terbaru (5 terakhir) - dari semua bulan
+        // Transaksi terbaru bulan ini saja (10 terakhir)
         $this->recentTransactions = Transaction::where('user_id', auth()->id())
+            ->filterByMonth($this->currentMonth, $this->currentYear)
             ->with('category')
             ->latest('tgl_transaksi')
-            ->take(5)
+            ->latest('id')
+            ->take(10)
             ->get()
             ->toArray();
 
         // Data chart 6 bulan terakhir
         $this->loadMonthlyChart();
 
-        // Breakdown kategori bulan ini
-        $this->loadCategoryBreakdown();
+        // Breakdown transaksi hari ini
+        $this->loadDailyBreakdown();
     }
 
     private function loadMonthlyChart()
@@ -106,37 +108,48 @@ class Dashboard extends Component
         $this->monthlyChart = $months;
     }
 
-    private function loadCategoryBreakdown()
+    private function loadDailyBreakdown()
     {
         if (!auth()->check()) {
-            $this->categoryBreakdown = [];
+            $this->dailyBreakdown = [];
             return;
         }
 
+        // Get today's transactions by category
+        $today = Carbon::today();
+
         $breakdown = Transaction::where('user_id', auth()->id())
-            ->filterByMonth($this->currentMonth, $this->currentYear)
-            ->whereNotNull('kategori_id')
-            ->join('categories', 'transactions.kategori_id', '=', 'categories.id')
-            ->selectRaw('categories.name, categories.id, tipe, SUM(nominal) as total, COUNT(*) as count')
-            ->groupBy('categories.id', 'categories.name', 'tipe')
+            ->whereDate('tgl_transaksi', $today)
+            ->with('category')
+            ->selectRaw('kategori_id, tipe, SUM(nominal) as total, COUNT(*) as count')
+            ->groupBy('kategori_id', 'tipe')
             ->get();
 
-        $this->categoryBreakdown = $breakdown
-            ->groupBy('name')
-            ->map(function ($group) {
-                $income = $group->where('tipe', 'pemasukan')->sum('total') ?: 0;
-                $expense = $group->where('tipe', 'pengeluaran')->sum('total') ?: 0;
-                return [
-                    'name' => $group->first()->name,
-                    'income' => (float) $income,
-                    'expense' => (float) $expense,
-                    'net' => (float) ($income - $expense),
-                    'transactions' => $group->sum('count'),
-                ];
-            })
-            ->sortByDesc('transactions')
-            ->values()
-            ->toArray();
+        $grouped = $breakdown->groupBy('kategori_id');
+
+        $this->dailyBreakdown = $grouped->map(function ($group) {
+            $categoryName = 'Tanpa Kategori';
+            $firstTransaction = $group->first();
+
+            // Get category name safely
+            if ($firstTransaction && $firstTransaction->kategori_id) {
+                $category = $group->first()->category;
+                if ($category) {
+                    $categoryName = $category->name;
+                }
+            }
+
+            $income = $group->where('tipe', 'pemasukan')->sum('total') ?: 0;
+            $expense = $group->where('tipe', 'pengeluaran')->sum('total') ?: 0;
+
+            return [
+                'category_name' => $categoryName,
+                'income' => (float) $income,
+                'expense' => (float) $expense,
+                'net' => (float) ($income - $expense),
+                'total_transactions' => $group->sum('count'),
+            ];
+        })->values()->toArray();
     }
 
     public function changeMonth($direction)
@@ -162,6 +175,9 @@ class Dashboard extends Component
 
         // Dispatch event untuk update chart
         $this->dispatch('monthChanged');
+
+        // Force refresh component
+        $this->skipRender = false;
     }
 
     public function exportExcel()
