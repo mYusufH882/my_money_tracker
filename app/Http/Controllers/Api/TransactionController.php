@@ -23,7 +23,7 @@ class TransactionController extends Controller
      */
     public function index(): JsonResponse
     {
-        $query = Transaction::query();
+        $query = Transaction::where('user_id', request()->user()->id);
 
         if (request()->has('month')) {
             $query->filterByMonth(request('month'), request('year', Carbon::now()->year));

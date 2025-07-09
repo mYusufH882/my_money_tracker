@@ -15,6 +15,7 @@ class Transaction extends Model
         'tipe',
         'nominal',
         'kategori_id',
+        'user_id',
     ];
 
     protected $casts = [
