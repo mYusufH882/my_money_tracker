@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\TransactionType;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\DB;
