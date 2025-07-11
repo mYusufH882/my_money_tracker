@@ -12,11 +12,21 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\TransactionsExport;
+use App\Services\BalanceService;
+use Exception;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TransactionController extends Controller
 {
     use ApiResponseTrait;
+
+    protected $balanceService;
+
+    public function __construct(BalanceService $balanceService)
+    {
+        $this->balanceService = $balanceService;
+    }
 
     /**
      * Display a listing of the resource.
@@ -25,23 +35,29 @@ class TransactionController extends Controller
     {
         $query = Transaction::where('user_id', request()->user()->id);
 
-        if (request()->has('month')) {
+        if (request()->filled('month')) {
             $query->filterByMonth(request('month'), request('year', Carbon::now()->year));
-        } elseif (request()->has('year')) {
+        } elseif (request()->filled('year')) {
             $query->filterByYear(request('year'));
         }
 
-        if (request()->has('tipe')) {
+        if (request()->filled('tipe')) {
             $query->filterByType(request('tipe'));
         }
 
-        if (request()->has('kategori_id')) {
+        if (request()->filled('kategori_id')) {
             $query->where('kategori_id', request('kategori_id'));
         }
 
         $transactions = $query->with('category')->paginate(10);
 
-        return $this->successWithPagination(TransactionResource::collection($transactions));
+        // Add balance summary to pagination response
+        $balanceSummary = $this->balanceService->getBalanceSummary(request()->user());
+
+        return $this->successWithPaginationAndSummary(
+            TransactionResource::collection($transactions),
+            $balanceSummary
+        );
     }
 
     /**
@@ -49,10 +65,53 @@ class TransactionController extends Controller
      */
     public function store(StoreTransactionRequest $request): JsonResponse
     {
-        $transaction = Transaction::create($request->validated());
-        $transaction->load('category');
+        $user = $request->user();
 
-        return $this->createdResponse(new TransactionResource($transaction), 'Transaction created successfully');
+        // Check if user can make this transaction
+        $canProceed = $this->balanceService->canMakeTransaction(
+            $user,
+            $request->nominal,
+            $request->tipe
+        );
+
+        if (!$canProceed['can_proceed']) {
+            return $this->errorResponse($canProceed['reason'], 400, [
+                'error_code' => $canProceed['error_code'],
+                'additional_data' => $canProceed
+            ]);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Create transaction
+            $transactionData = $request->validated();
+            $transactionData['user_id'] = $user->id;
+
+            $transaction = Transaction::create($transactionData);
+            $transaction->load('category');
+
+            // Update balance
+            $this->balanceService->updateFromTransaction(
+                $user,
+                $request->nominal,
+                $request->tipe
+            );
+
+            DB::commit();
+
+            // Get updated balance summary
+            $balanceSummary = $this->balanceService->getBalanceSummary($user);
+
+            return $this->createdResponseWithSummary(
+                new TransactionResource($transaction),
+                $balanceSummary,
+                'Transaction created successfully'
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->errorResponse('Failed to create transaction: ' . $e->getMessage(), 500);
+        }
     }
 
     /**
@@ -60,7 +119,9 @@ class TransactionController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $transaction = Transaction::with('category')->find($id);
+        $transaction = Transaction::with('category')
+            ->where('user_id', request()->user()->id)
+            ->find($id);
 
         if (!$transaction) {
             return $this->notFoundResponse('Transaction not found');
@@ -74,16 +135,67 @@ class TransactionController extends Controller
      */
     public function update(UpdateTransactionRequest $request, $id): JsonResponse
     {
-        $transaction = Transaction::find($id);
+        $user = $request->user();
+        $transaction = Transaction::where('user_id', $user->id)->find($id);
 
         if (!$transaction) {
             return $this->notFoundResponse('Transaction not found');
         }
 
-        $transaction->update($request->validated());
-        $transaction->load('category');
+        try {
+            DB::beginTransaction();
 
-        return $this->updatedResponse(new TransactionResource($transaction), 'Transaction updated successfully');
+            // Reverse old transaction effect on balance
+            $this->balanceService->updateFromTransaction(
+                $user,
+                $transaction->nominal,
+                $transaction->tipe === 'pemasukan' ? 'pengeluaran' : 'pemasukan'
+            );
+
+            // Check if user can make the new transaction
+            $canProceed = $this->balanceService->canMakeTransaction(
+                $user,
+                $request->nominal,
+                $request->tipe
+            );
+
+            if (!$canProceed['can_proceed']) {
+                // Restore old transaction effect
+                $this->balanceService->updateFromTransaction(
+                    $user,
+                    $transaction->nominal,
+                    $transaction->tipe
+                );
+
+                DB::rollBack();
+                return $this->errorResponse($canProceed['reason'], 400);
+            }
+
+            // Update transaction
+            $transaction->update($request->validated());
+            $transaction->load('category');
+
+            // Apply new transaction effect on balance
+            $this->balanceService->updateFromTransaction(
+                $user,
+                $request->nominal,
+                $request->tipe
+            );
+
+            DB::commit();
+
+            // Get updated balance summary
+            $balanceSummary = $this->balanceService->getBalanceSummary($user);
+
+            return $this->updatedResponseWithSummary(
+                new TransactionResource($transaction),
+                $balanceSummary,
+                'Transaction updated successfully'
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->errorResponse('Failed to update transaction: ' . $e->getMessage(), 500);
+        }
     }
 
     /**
@@ -91,15 +203,60 @@ class TransactionController extends Controller
      */
     public function destroy($id): JsonResponse
     {
-        $transaction = Transaction::find($id);
+        $user = request()->user();
+        $transaction = Transaction::where('user_id', $user->id)->find($id);
 
         if (!$transaction) {
             return $this->notFoundResponse('Transaction not found');
         }
 
-        $transaction->delete();
+        try {
+            DB::beginTransaction();
 
-        return $this->deletedResponse('Transaction deleted successfully');
+            // Reverse transaction effect on balance
+            $this->balanceService->updateFromTransaction(
+                $user,
+                $transaction->nominal,
+                $transaction->tipe === 'pemasukan' ? 'pengeluaran' : 'pemasukan'
+            );
+
+            // Delete transaction
+            $transaction->delete();
+
+            DB::commit();
+
+            // Get updated balance summary
+            $balanceSummary = $this->balanceService->getBalanceSummary($user);
+
+            return $this->deletedResponseWithSummary(
+                $balanceSummary,
+                'Transaction deleted successfully'
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->errorResponse('Failed to delete transaction: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Simulate transaction (preview without saving)
+     */
+    public function simulate(): JsonResponse
+    {
+        $user = request()->user();
+
+        request()->validate([
+            'nominal' => 'required|numeric|min:0.01',
+            'tipe' => 'required|in:pemasukan,pengeluaran'
+        ]);
+
+        $simulation = $this->balanceService->simulateTransaction(
+            $user,
+            request('nominal'),
+            request('tipe')
+        );
+
+        return $this->successResponse($simulation, 'Transaction simulation');
     }
 
     public function report(): JsonResponse
@@ -107,7 +264,7 @@ class TransactionController extends Controller
         $year = request('year', Carbon::now()->year);
         $month = request('month', null);
 
-        $query = Transaction::query();
+        $query = Transaction::where('user_id', request()->user()->id);
 
         if ($month) {
             $query->filterByMonth($month, $year);
@@ -132,7 +289,7 @@ class TransactionController extends Controller
     public function chart(): JsonResponse
     {
         $year = request('year', Carbon::now()->year);
-        $query = Transaction::query()->filterByYear($year);
+        $query = Transaction::where('user_id', request()->user()->id)->filterByYear($year);
 
         $chartData = [
             'monthly' => $query->clone()

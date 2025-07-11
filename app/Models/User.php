@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -45,5 +47,34 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function balance(): HasOne
+    {
+        return $this->hasOne(Balance::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    public function hasBalance(): bool
+    {
+        return $this->balance()->exists();
+    }
+
+    public function getCurrentBalance(): float
+    {
+        return $this->balance?->current_balance ?? 0;
+    }
+
+    public function getFormattedCurrentBalanceAttribute(): string
+    {
+        if (!$this->hasBalance()) {
+            return 'Belum diset';
+        }
+
+        return 'Rp ' . number_format($this->getCurrentBalance(), 0, ',', '.');
     }
 }
