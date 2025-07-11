@@ -3,10 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Category;
-use Exception;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class CategorySeeder extends Seeder
 {
@@ -15,27 +12,39 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
-        DB::beginTransaction();
+        $categories = [
+            // System category (harus pertama)
+            'Saldo Awal',
 
-        try {
-            $categories = [
-                ['name' => 'Gaji'],
-                ['name' => 'Tunjangan'],
-                ['name' => 'THR'],
-                ['name' => 'Lembur'],
-                ['name' => 'Transport'],
-                ['name' => 'Sewa Kost'],
-                ['name' => 'Uang Makan'],
-                ['name' => 'Lainnya']
-            ];
+            // Income categories  
+            'Gaji',
+            'Tunjangan',
+            'Bonus',
+            'THR',
+            'Lembur',
+            'Freelance',
+            'Investasi',
+            'Hadiah',
 
-            foreach ($categories as $category) {
-                Category::firstOrCreate($category);
-            }
+            // Expense categories
+            'Makanan & Minuman',
+            'Transportasi',
+            'Belanja',
+            'Tagihan',
+            'Hiburan',
+            'Kesehatan',
+            'Pendidikan',
+            'Sewa/Kost',
+            'Lain-lain'
+        ];
 
-            DB::commit();
-        } catch (Exception $e) {
-            throw new Exception("Categories not found. Please run CategorySeeder first. Error: " . $e->getMessage());
+        foreach ($categories as $category) {
+            Category::firstOrCreate(
+                ['name' => $category],
+                ['name' => $category]
+            );
         }
+
+        $this->command->info("Created " . count($categories) . " categories including 'Saldo Awal'");
     }
 }
