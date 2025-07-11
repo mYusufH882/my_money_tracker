@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,12 +13,14 @@
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700" rel="stylesheet" />
 
     <!-- Scripts -->
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <!-- @vite(['resources/css/app.css', 'resources/js/app.js']) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     @livewireStyles
 </head>
+
 <body class="font-sans text-gray-900 antialiased">
     <div class="min-h-screen flex flex-col justify-center py-6 sm:py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
-        
+
         <!-- Main content container -->
         <div class="w-full max-w-sm sm:max-w-md mx-auto">
             <!-- Logo/Header -->
@@ -45,7 +48,7 @@
                     <a href="#" class="text-gray-600 hover:text-indigo-600 transition-colors">Bantuan</a>
                     <a href="#" class="text-gray-600 hover:text-indigo-600 transition-colors">Privasi</a>
                 </div>
-                
+
                 <div class="text-xs text-gray-500">
                     © {{ date('Y') }} Money Tracker. Dibuat dengan ❤️ menggunakan Laravel & Livewire.
                 </div>
@@ -62,4 +65,5 @@
     @livewireScripts
     @stack('scripts')
 </body>
+
 </html>
