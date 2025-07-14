@@ -4,6 +4,8 @@ namespace App\Livewire\Transactions;
 
 use App\Models\Transaction;
 use App\Models\Category;
+use App\Services\BalanceService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -22,9 +24,29 @@ class TransactionList extends Component
     public $filterMonth = '';
     public $filterYear = '';
 
+    public $currentBalance = 0;
+    public $totalIncome = 0;
+    public $totalExpense = 0;
+    public $filteredIncome = 0;
+    public $filteredExpense = 0;
+    public $transactionCount = 0;
+
+    protected $balanceService;
+
+    protected $listeners = [
+        'transactionSaved' => 'refreshData',
+        'balance-updated' => 'refreshData'
+    ];
+
+    public function boot(BalanceService $balanceService)
+    {
+        $this->balanceService = $balanceService;
+    }
+
     public function mount()
     {
         $this->filterYear = date('Y');
+        $this->loadBalanceSummary();
     }
 
     public function updatingSearch()
@@ -64,18 +86,33 @@ class TransactionList extends Component
     public function deleteTransaction($id)
     {
         try {
+            DB::beginTransaction();
+
             $transaction = Transaction::where('user_id', auth()->id())->findOrFail($id);
+
+            $this->balanceService->updateFromTransaction(
+                auth()->user(),
+                $transaction->nominal,
+                $transaction->tipe === 'pemasukan' ? 'pengeluaran' : 'pemasukan'
+            );
+
             $transaction->delete();
 
+            DB::commit();
+
+            $this->refreshData();
             session()->flash('success', 'Transaksi berhasil dihapus.');
         } catch (\Exception $e) {
+            DB::rollBack();
             session()->flash('error', 'Gagal menghapus transaksi.');
         }
     }
 
-    protected $listeners = [
-        'transactionSaved' => '$refresh'
-    ];
+    public function refreshData()
+    {
+        $this->loadBalanceSummary();
+        $this->dispatch('$refresh');
+    }
 
     public function addTransaction()
     {
@@ -87,14 +124,27 @@ class TransactionList extends Component
         $this->dispatch('openEditModal', $id);
     }
 
-    public function render()
+    public function loadBalanceSummary()
     {
-        // Build query
-        $query = Transaction::where('user_id', auth()->id())
-            ->with('category')
-            ->latest('tgl_transaksi');
+        $user = auth()->user();
 
-        // Apply filters
+        $this->currentBalance = $user->getCurrentBalance();
+
+        $allTransactions = Transaction::where('user_id', $user->id)->get();
+        $this->totalIncome = $allTransactions->where('tipe', 'pemasukan')->sum('nominal');
+        $this->totalExpense = $allTransactions->where('tipe', 'pengeluaran')->sum('nominal');
+        $this->transactionCount = $allTransactions->count();
+
+        $filteredQuery = $this->getFilteredQuery();
+        $filteredTransactions = $filteredQuery->get();
+        $this->filteredIncome = $filteredTransactions->where('tipe', 'pemasukan')->sum('nominal');
+        $this->filteredExpense = $filteredTransactions->where('tipe', 'pengeluaran')->sum('nominal');
+    }
+
+    private function getFilteredQuery()
+    {
+        $query = Transaction::where('user_id', auth()->id());
+
         if ($this->search) {
             $query->where('deskripsi', 'like', '%' . $this->search . '%');
         }
@@ -107,14 +157,59 @@ class TransactionList extends Component
             $query->where('kategori_id', $this->filterCategory);
         }
 
-        if ($this->filterMonth) {
-            $query->filterByMonth($this->filterMonth, $this->filterYear ?: date('Y'));
+        if ($this->filterMonth && $this->filterYear) {
+            $query->filterByMonth($this->filterMonth, $this->filterYear);
         } elseif ($this->filterYear) {
             $query->filterByYear($this->filterYear);
         }
 
-        // Get transactions with pagination
-        $transactions = $query->paginate(10);
+        return $query;
+    }
+
+    public function getFormattedCurrentBalanceProperty()
+    {
+        return 'Rp ' . number_format($this->currentBalance, 0, ',', '.');
+    }
+
+    public function getFormattedTotalIncomeProperty()
+    {
+        return 'Rp ' . number_format($this->totalIncome, 0, ',', '.');
+    }
+
+    public function getFormattedTotalExpenseProperty()
+    {
+        return 'Rp ' . number_format($this->totalExpense, 0, ',', '.');
+    }
+
+    public function getFormattedFilteredIncomeProperty()
+    {
+        return 'Rp ' . number_format($this->filteredIncome, 0, ',', '.');
+    }
+
+    public function getFormattedFilteredExpenseProperty()
+    {
+        return 'Rp ' . number_format($this->filteredExpense, 0, ',', '.');
+    }
+
+    public function getFilteredNetProperty()
+    {
+        return $this->filteredIncome - $this->filteredExpense;
+    }
+
+    public function getFormattedFilteredNetProperty()
+    {
+        return 'Rp ' . number_format($this->filteredNet, 0, ',', '.');
+    }
+
+    public function render()
+    {
+        // Build query
+        $query = $this->getFilteredQuery();
+
+        $transactions = $query->with('category')
+            ->latest('tgl_transaksi')
+            ->latest('id')
+            ->paginate(10);
 
         // Get categories for filter dropdown
         $categories = Category::orderBy('name')->get();
@@ -122,7 +217,6 @@ class TransactionList extends Component
         return view('livewire.transactions.transaction-list', [
             'transactions' => $transactions,
             'categories' => $categories,
-            'title' => 'Daftar Transaksi'
         ]);
     }
 }

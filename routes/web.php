@@ -6,6 +6,7 @@ use App\Livewire\Auth\Register;
 use App\Livewire\Categories\CategoryManager;
 use App\Livewire\Dashboard;
 use App\Livewire\Reports\FinancialSummary;
+use App\Livewire\SetInitialBalance;
 use App\Livewire\Transactions\TransactionList;
 use Illuminate\Support\Facades\Route;
 use Maatwebsite\Excel\Facades\Excel;
@@ -18,8 +19,9 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', Dashboard::class)->name('dashboard');
-    Route::get('/transactions', TransactionList::class)->name('transactions');
+    Route::get('/dashboard', Dashboard::class)->name('dashboard')->middleware('check.balance');
+    Route::get('/set-initial-balance', SetInitialBalance::class)->name('set-initial-balance');
+    Route::get('/transactions', TransactionList::class)->name('transactions')->middleware('check.balance');
     Route::get('/reports', FinancialSummary::class)->name('reports');
     Route::get('/categories', CategoryManager::class)->name('categories');
 

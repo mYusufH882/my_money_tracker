@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'api.auth' => \App\Http\Middleware\EnsureApiAuth::class,
+            'check.balance' => \App\Http\Middleware\CheckBalance::class,
         ]);
 
         $middleware->group('web', [

@@ -4,6 +4,7 @@ namespace App\Livewire\Transactions;
 
 use App\Models\Transaction;
 use App\Models\Category;
+use App\Services\BalanceService;
 use Livewire\Component;
 
 class TransactionForm extends Component
@@ -19,10 +20,22 @@ class TransactionForm extends Component
     public $nominal = '';
     public $kategori_id = '';
 
+    public $currentBalance = 0;
+    public $previewBalance = 0;
+    public $showBalancePreview = false;
+    public $balanceWarning = '';
+
+    protected $balanceService;
+
     protected $listeners = [
         'openCreateModal' => 'openCreate',
         'openEditModal' => 'openEdit',
     ];
+
+    public function boot(BalanceService $balanceService)
+    {
+        $this->balanceService = $balanceService;
+    }
 
     public function rules()
     {
@@ -47,11 +60,17 @@ class TransactionForm extends Component
         ];
     }
 
+    public function mount()
+    {
+        $this->loadCurrentBalance();
+    }
+
     public function openCreate()
     {
         $this->resetForm();
         $this->isEdit = false;
         $this->tgl_transaksi = date('Y-m-d');
+        $this->loadCurrentBalance();
         $this->showModal = true;
     }
 
@@ -71,12 +90,59 @@ class TransactionForm extends Component
         $this->tipe = $transaction->tipe;
         $this->nominal = $transaction->nominal;
         $this->kategori_id = $transaction->kategori_id;
+        $this->loadCurrentBalance();
         $this->showModal = true;
+    }
+
+    public function updated($propertyName)
+    {
+        if (in_array($propertyName, ['tipe', 'nominal'])) {
+            $this->updateBalancePreview();
+        }
+
+        $this->validateOnly($propertyName);
+    }
+
+    public function updateBalancePreview()
+    {
+        if (!$this->tipe || !$this->nominal || !is_numeric($this->nominal)) {
+            $this->showBalancePreview = false;
+            $this->balanceWarning = '';
+            return;
+        }
+
+        $simulation = $this->balanceService->simulateTransaction(
+            auth()->user(),
+            (float) $this->nominal,
+            $this->tipe
+        );
+
+        $this->previewBalance = $simulation['new_balance'];
+        $this->showBalancePreview = true;
+
+        if ($this->previewBalance < 0) {
+            $this->balanceWarning = 'Saldo akan menjadi negatif!';
+        } elseif ($this->tipe === 'pengeluaran' && $this->previewBalance < 100000) {
+            $this->balanceWarning = 'Saldo akan menjadi rendah (< Rp 100.000)';
+        } else {
+            $this->balanceWarning = '';
+        }
     }
 
     public function save()
     {
         $this->validate();
+
+        $canProceed = $this->balanceService->canMakeTransaction(
+            auth()->user(),
+            (float) $this->nominal,
+            $this->tipe
+        );
+
+        if (!$canProceed['can_proceed']) {
+            session()->flash('error', $canProceed['reason']);
+            return;
+        }
 
         try {
             $data = [
@@ -90,15 +156,38 @@ class TransactionForm extends Component
 
             if ($this->isEdit) {
                 $transaction = Transaction::where('user_id', auth()->id())->findOrFail($this->transactionId);
+
+                $this->balanceService->updateFromTransaction(
+                    auth()->user(),
+                    $transaction->nominal,
+                    $transaction->tipe === 'pemasukan' ? 'pengeluaran' : 'pemasukan'
+                );
+
                 $transaction->update($data);
+
+                $this->balanceService->updateFromTransaction(
+                    auth()->user(),
+                    (float) $this->nominal,
+                    $this->tipe
+                );
+
                 $message = 'Transaksi berhasil diperbarui.';
             } else {
                 Transaction::create($data);
+
+                $this->balanceService->updateFromTransaction(
+                    auth()->user(),
+                    (float) $this->nominal,
+                    $this->tipe
+                );
+
                 $message = 'Transaksi berhasil ditambahkan.';
             }
 
             $this->closeModal();
             $this->dispatch('transactionSaved');
+            $this->dispatch('balance-updated');
+
             session()->flash('success', $message);
         } catch (\Exception $e) {
             session()->flash('error', 'Terjadi kesalahan. Silakan coba lagi.');
@@ -113,8 +202,24 @@ class TransactionForm extends Component
 
     private function resetForm()
     {
-        $this->reset(['tgl_transaksi', 'deskripsi', 'tipe', 'nominal', 'kategori_id', 'transactionId']);
+        $this->reset(['tgl_transaksi', 'deskripsi', 'tipe', 'nominal', 'kategori_id', 'transactionId', 'previewBalance', 'showBalancePreview', 'balanceWarning']);
         $this->resetErrorBag();
+    }
+
+    private function loadCurrentBalance()
+    {
+        $user = auth()->user();
+        $this->currentBalance = $user->getCurrentBalance();
+    }
+
+    public function getFormattedCurrentBalanceProperty()
+    {
+        return 'Rp ' . number_format($this->currentBalance, 0, ',', '.');
+    }
+
+    public function getFormattedPreviewBalanceProperty()
+    {
+        return 'Rp ' . number_format($this->previewBalance, 0, ',', '.');
     }
 
     public function render()
